@@ -1,7 +1,8 @@
 #include "PID.h"
+#include "Arduino.h"
 
-PID::PID(double p, double i, double d, unsigned long &DT):
-    kp(p), ki(i), kd(d), previous_error(0), setpoint(0), DT(DT) {}
+PID::PID(double p, double i, double d):
+    kp(p), ki(i), kd(d), previous_error(0), setpoint(0), integral(0) {}
 
 PID::~PID() {}
 
@@ -16,19 +17,27 @@ void PID::setD(double d) {
     kd = d;
 }
 
-double PID::compute(double setpoint, double measured_value) {
-    double error = setpoint - measured_value;
+double PID::compute(double setpoint, double measured) {
 
-    DT /= 1000.0; // Convert DT from milliseconds to seconds for calculation
+    double error = setpoint - measured;
 
     double P = kp * error;
+    
+    integral += ki * error * 0.004;
+    double I = integral;
 
-    static double integral = 0;
-    integral += DT;
-    double I = ki * integral * DT;
+    if (ki == 0) I = 0;
 
-    double D = kd * (error - previous_error) / (DT + 2e-16); // + small value to avoid division by zero.
+    double alpha = 0.42;
+    double error_derivative = (error - previous_error) / (0.004);
+    filtered_derivative = error_derivative * alpha + filtered_derivative*(1-alpha);
+    double D = kd * filtered_derivative;
 
     previous_error = error;
     return P + I + D;
+}
+
+void PID::reset() {
+    integral = 0;
+    //previous_error = 0;
 }
